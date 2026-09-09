@@ -1,0 +1,7 @@
+name: Hello World Workflow
+on: [push]
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Hello, $GITHUB_ACTOR. This runs on $RUNNER_OS."
