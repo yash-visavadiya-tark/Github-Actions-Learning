@@ -2,8 +2,18 @@ name: Node.js CI
 on:
   push:
     branches: [master]
+    paths:
+      - 'node/**'
+      - '.github/workflows/node-ci.yml'
   pull_request:
     branches: [master]
+    paths:
+      - 'node/**'
+      - '.github/workflows/node-ci.yml'
+
+defaults:
+  run:
+    working-directory: node
 
 jobs:
   build:
@@ -14,5 +24,6 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
+          cache-dependency-path: node/package-lock.json
       - run: npm ci
       - run: npm test
