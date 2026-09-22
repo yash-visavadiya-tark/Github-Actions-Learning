@@ -1,0 +1,77 @@
+name: PR Checks
+
+# Default activity types for pull_request are: opened, reopened, synchronize.
+# "synchronize" fires on every new commit pushed to an open PR's branch,
+# so this one trigger covers both cases we care about.
+on:
+  pull_request:
+    branches: [master]
+
+# Least privilege: these jobs only read the repo, nothing else.
+permissions:
+  contents: read
+
+# A new commit on the PR cancels the run still in flight for the older commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: dotnet
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Run tests
+        # `shell: bash` is what turns on pipefail. Without it the `| tee`
+        # would hide a failing `dotnet test` behind tee's exit code 0.
+        shell: bash
+        run: dotnet test --logger "trx;LogFileName=results.trx" | tee test-output.txt
+
+      - name: Publish test stats to the run summary
+        # always() so the stats still show up when the tests above went red.
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '### Test results'
+            echo ''
+            if grep -qE '^(Passed|Failed)!' test-output.txt 2>/dev/null; then
+              echo '| Result | Passed | Failed | Skipped | Total | Duration | Assembly |'
+              echo '|:---|---:|---:|---:|---:|---:|:---|'
+              # dotnet orders the counters Failed, Passed, Skipped, Total; the
+              # capture groups reshuffle them into cells, then the verdict word
+              # becomes an icon. One row per test assembly.
+              grep -E '^(Passed|Failed)!' test-output.txt \
+                | sed -E 's/^(Passed|Failed)! *- *Failed: *([0-9]+), *Passed: *([0-9]+), *Skipped: *([0-9]+), *Total: *([0-9]+), *Duration: *(.+) - (.+)$/| \1 | \3 | \2 | \4 | \5 | \6 | \7 |/' \
+                | sed -e 's/^| Passed |/| ✅ Pass |/' -e 's/^| Failed |/| ❌ Fail |/'
+            else
+              echo '> No test summary line found - the test project likely failed to compile.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    # `needs` forces the ordering (Build starts only after Test finishes)...
+    needs: test
+    # ...and `!cancelled()` overrides the default "skip me if `needs` failed",
+    # so a red Test still lets Build run. Prefer this over always(), which
+    # would also run the job after you cancel the workflow.
+    if: ${{ !cancelled() }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build solution
+        run: dotnet build --configuration Release
