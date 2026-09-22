@@ -11,6 +11,6 @@ public class MathTests
     [Fact]
     public void AddsNegatives()
     {
-        Assert.Equal(-2   ,    Math.Add(-1, -1));
+        Assert.Equal(-2, Math.Add(-1, -1));
     }
 }
