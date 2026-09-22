@@ -28,11 +28,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v6
         with:
-          # Calculator.Tests multi-targets net8.0 and net9.0, so both SDKs
-          # must be present or restore fails.
-          dotnet-version: |
-            8.0.x
-            9.0.x
+          dotnet-version: 9.0.x
 
       - name: Run tests
         # `shell: bash` is what turns on pipefail. Without it the `| tee`
@@ -67,9 +63,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: |
-            8.0.x
-            9.0.x
+          dotnet-version: 9.0.x
 
       - name: Build solution
         run: dotnet build --configuration Release

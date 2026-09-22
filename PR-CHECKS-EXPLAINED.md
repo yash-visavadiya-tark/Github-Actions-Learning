@@ -93,12 +93,12 @@ These two lines do different halves of the job:
 `dotnet test` already prints a line like this:
 
 ```
-Passed!  - Failed:     0, Passed:     2, Skipped:     2, Total:     4, Duration: 252 ms - Calculator.Tests.dll (net8.0)
+Passed!  - Failed:     0, Passed:     2, Skipped:     0, Total:     2, Duration: 9 ms - Calculator.Tests.dll (net9.0)
 ```
 
-(Two such lines here — `Calculator.Tests` multi-targets `net8.0` and `net9.0`, so `dotnet test` runs the suite once per framework. That is also why `setup-dotnet` installs both SDKs.)
+(One line, one framework: `Calculator.Tests` single-targets `net9.0`, which is why `setup-dotnet` installs just `9.0.x` and neither command needs a `--framework` argument.)
 
-That line is buried in the log, so we tee it to a file and republish it to the run summary:
+That summary line is buried in the log, so we tee it to a file and republish it to the run summary:
 
 ```yaml
       - name: Run tests
@@ -189,7 +189,7 @@ Those two strings are the `name:` values of the jobs. If a job has no `name:`, t
 | Uploading the `.trx` file as an artifact | you want to download raw results, or feed them to a reporter action |
 | `dorny/test-reporter` (per-test detail as its own check run) | the one-line counters stop being enough. Costs a third-party dependency and `checks: write` |
 | A `dotnet format` lint gate | you want the existing `dotnet-ci.yml` lint job required too — add `lint` to the same ruleset |
-| A matrix over frameworks | never needed here: the multi-targeted test project already runs both TFMs inside one job, and a matrix would split the check into `Test (net8.0)` / `Test (net9.0)` — two brittle names to keep in sync with the ruleset |
+| A matrix over frameworks | the project goes back to multi-targeting. It costs a second SDK in `setup-dotnet` and splits the check into `Test (net8.0)` / `Test (net9.0)` — two brittle names to keep in sync with the ruleset |
 | An aggregate `ci-passed` job | you *do* adopt matrices. Then require the single aggregate job instead of every matrix leg by name |
 | A `push:` trigger on `master` | you want a status badge or a post-merge signal on `master` itself |
 
