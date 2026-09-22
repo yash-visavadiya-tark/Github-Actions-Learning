@@ -22,28 +22,17 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v6
         with:
-          # Both SDKs: the project multi-targets, so restore resolves net8.0 too.
-          dotnet-version: |
-            8.0.x
-            9.0.x
+          dotnet-version: 9.0.x
       - run: dotnet restore
       - run: dotnet format --verify-no-changes
 
   test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        framework: [net8.0, net9.0]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v6
         with:
-          # SDK 9 builds net9.0; the .NET 8 runtime ships with SDK 8 and is
-          # what actually executes the net8.0 test run.
-          dotnet-version: |
-            8.0.x
-            9.0.x
+          dotnet-version: 9.0.x
       - run: dotnet restore
-      - run: dotnet build --no-restore --framework ${{ matrix.framework }}
-      - run: dotnet test --no-build --framework ${{ matrix.framework }} --logger trx --verbosity normal 
+      - run: dotnet build --no-restore
+      - run: dotnet test --no-build --logger trx --verbosity normal
