@@ -119,6 +119,8 @@ Only the second one has **`pipefail`**. Without it, the exit code of `dotnet tes
 
 A file path GitHub hands to every step. Markdown appended to it renders on the run's summary page. It is built in — no third-party action, no extra token permission.
 
+Since it renders as Markdown, the counters line is reshaped into a table row rather than dumped as raw text — one row per test assembly:
+
 ```yaml
       - name: Publish test stats to the run summary
         if: always()
@@ -126,14 +128,28 @@ A file path GitHub hands to every step. Markdown appended to it renders on the r
           {
             echo '### Test results'
             echo ''
-            echo '```'
-            grep -E '^(Passed|Failed)!' test-output.txt \
-              || echo 'No test summary line found - the test project likely failed to compile.'
-            echo '```'
+            if grep -qE '^(Passed|Failed)!' test-output.txt 2>/dev/null; then
+              echo '| Result | Passed | Failed | Skipped | Total | Duration | Assembly |'
+              echo '|:---|---:|---:|---:|---:|---:|:---|'
+              grep -E '^(Passed|Failed)!' test-output.txt \
+                | sed -E 's/^(Passed|Failed)! *- *Failed: *([0-9]+), *Passed: *([0-9]+), *Skipped: *([0-9]+), *Total: *([0-9]+), *Duration: *(.+) - (.+)$/| \1 | \3 | \2 | \4 | \5 | \6 | \7 |/' \
+                | sed -e 's/^| Passed |/| ✅ Pass |/' -e 's/^| Failed |/| ❌ Fail |/'
+            else
+              echo '> No test summary line found - the test project likely failed to compile.'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 ```
 
-The `|| echo` fallback matters: if the test project fails to *compile*, `dotnet test` never prints a counters line, `grep` exits non-zero, and under `-e` that would fail the step for the wrong reason.
+which renders on the run's summary page as:
+
+| Result | Passed | Failed | Skipped | Total | Duration | Assembly |
+|:---|---:|---:|---:|---:|---:|:---|
+| ✅ Pass | 2 | 0 | 0 | 2 | 11 ms | Calculator.Tests.dll (net9.0) |
+
+Two details in there are worth the read:
+
+- **The capture groups reorder the columns.** `dotnet` prints its counters as `Failed, Passed, Skipped, Total`. Leading a table with the failure count reads oddly, so `\3` (passed) is emitted before `\2` (failed).
+- **The `else` branch is not decoration.** If the test project fails to *compile*, `dotnet test` never prints a counters line at all. Without the `grep -q` guard, `grep` would exit non-zero and `-e` would kill the step — losing the summary at exactly the moment you most need something on screen. The `2>/dev/null` covers the rarer case where `test-output.txt` was never created.
 
 **On reading a red `test` check:** it means either "an assertion failed" *or* "the test project didn't compile" — `dotnet test` builds before it runs. The summary line tells you which.
 

@@ -44,10 +44,18 @@ jobs:
           {
             echo '### Test results'
             echo ''
-            echo '```'
-            grep -E '^(Passed|Failed)!' test-output.txt \
-              || echo 'No test summary line found - the test project likely failed to compile.'
-            echo '```'
+            if grep -qE '^(Passed|Failed)!' test-output.txt 2>/dev/null; then
+              echo '| Result | Passed | Failed | Skipped | Total | Duration | Assembly |'
+              echo '|:---|---:|---:|---:|---:|---:|:---|'
+              # dotnet orders the counters Failed, Passed, Skipped, Total; the
+              # capture groups reshuffle them into cells, then the verdict word
+              # becomes an icon. One row per test assembly.
+              grep -E '^(Passed|Failed)!' test-output.txt \
+                | sed -E 's/^(Passed|Failed)! *- *Failed: *([0-9]+), *Passed: *([0-9]+), *Skipped: *([0-9]+), *Total: *([0-9]+), *Duration: *(.+) - (.+)$/| \1 | \3 | \2 | \4 | \5 | \6 | \7 |/' \
+                | sed -e 's/^| Passed |/| ✅ Pass |/' -e 's/^| Failed |/| ❌ Fail |/'
+            else
+              echo '> No test summary line found - the test project likely failed to compile.'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   build:
